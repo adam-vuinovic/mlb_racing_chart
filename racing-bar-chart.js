@@ -1,12 +1,10 @@
-// Load the data
 d3.csv("data.csv").then(data => {
-  // Parse the data
+  // Convert values to numbers and ensure dates are parsed
   data.forEach(d => {
-    d.value = +d.value; // Ensure 'value' is numeric
-    d.date = new Date(d.date); // Parse the date field to a Date object
+    d.value = +d.value;
+    d.date = new Date(d.date); // Ensure the `date` column is parsed as a Date object
   });
-
-  console.log("Loaded data:", data); // Log to check the structure of the data
+  console.log("Data loaded:", data);
 
   const svg = d3.select("#chart"),
         width = +svg.attr("width"),
@@ -23,7 +21,7 @@ d3.csv("data.csv").then(data => {
   const renderChart = (stat) => {
     console.log("Rendering chart for stat:", stat);
 
-    // Filter data for the selected stat
+    // Filter the data for the selected stat
     const filteredData = data.filter(d => d.stat === stat);
     console.log("Filtered data:", filteredData);
 
@@ -33,7 +31,7 @@ d3.csv("data.csv").then(data => {
     }
 
     // Group data by date
-    const groupedByDate = d3.groups(filteredData, d => d.date.toISOString().split("T")[0]);
+    const groupedByDate = d3.groups(filteredData, d => d.date);
     console.log("Grouped data by date:", groupedByDate);
 
     let currentIndex = 0;
@@ -46,14 +44,14 @@ d3.csv("data.csv").then(data => {
 
       console.log("Rendering date:", date, "with stats:", stats);
 
-      // Sort stats by value for proper ranking
+      // Sort the data for this date by value in descending order
       stats.sort((a, b) => b.value - a.value);
 
-      // Update scales
+      // Update the scales
       xScale.domain([0, d3.max(stats, d => d.value)]);
       yScale.domain(stats.map(d => d.player));
 
-      // Update bars
+      // Update the bars
       g.selectAll(".bar")
         .data(stats, d => d.player)
         .join(
@@ -71,7 +69,7 @@ d3.csv("data.csv").then(data => {
           exit => exit.transition().duration(1000).attr("width", 0).remove()
         );
 
-      // Update labels
+      // Update the labels
       g.selectAll(".label")
         .data(stats, d => d.player)
         .join(
@@ -91,8 +89,13 @@ d3.csv("data.csv").then(data => {
           exit => exit.transition().duration(1000).style("opacity", 0).remove()
         );
 
-      // Update date label
-      g.selectAll(".date-label")
+      // Update the x-axis
+      svg.select(".x-axis")
+        .transition().duration(1000)
+        .call(d3.axisTop(xScale).ticks(6));
+
+      // Add a date label at the top
+      svg.selectAll(".date-label")
         .data([date])
         .join(
           enter => enter.append("text")
@@ -101,25 +104,25 @@ d3.csv("data.csv").then(data => {
             .attr("y", -10)
             .attr("text-anchor", "middle")
             .style("font-size", "16px")
-            .text(date),
-          update => update.text(date)
+            .text(d => d3.timeFormat("%B %d, %Y")(d)),
+          update => update.text(d => d3.timeFormat("%B %d, %Y")(d))
         );
 
-      // Wait and then update the next frame
+      // Move to the next frame after a delay
       setTimeout(update, 1500);
     };
 
+    // Initialize the chart with the first frame
     update();
   };
 
-  // Button listener
+  // Add event listener to the "Go" button
   document.getElementById("start-button").addEventListener("click", () => {
     const selectedStat = document.getElementById("stat-select").value;
     console.log("Go button clicked, selected stat:", selectedStat);
     renderChart(selectedStat);
   });
 
-  // Initial setup for axes
-  g.append("g").attr("class", "x-axis").attr("transform", `translate(0,0)`);
-  g.append("g").attr("class", "y-axis");
+  // Initial setup of x-axis
+  svg.append("g").attr("class", "x-axis").attr("transform", `translate(${margin.left},${margin.top})`);
 });
