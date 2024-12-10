@@ -1,15 +1,18 @@
 d3.csv("data.csv").then(data => {
-  // Convert values to numbers and ensure dates are parsed
+  // Parse data and initialize cumulative stats
+  const playerStats = {};
   data.forEach(d => {
-    d.value = +d.value;
-    d.date = new Date(d.date); // Ensure the `date` column is parsed as a Date object
+    d.value = +d.value; // Ensure 'value' is numeric
+    d.date = new Date(d.date); // Parse 'date' as a Date object
+    if (!playerStats[d.player]) {
+      playerStats[d.player] = 0; // Initialize cumulative value for each player
+    }
   });
-  console.log("Data loaded:", data);
 
   const svg = d3.select("#chart"),
         width = +svg.attr("width"),
         height = +svg.attr("height"),
-        margin = { top: 40, right: 20, bottom: 30, left: 100 },
+        margin = { top: 50, right: 20, bottom: 30, left: 200 },
         innerWidth = width - margin.left - margin.right,
         innerHeight = height - margin.top - margin.bottom;
 
@@ -18,10 +21,11 @@ d3.csv("data.csv").then(data => {
 
   const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
 
-  const renderChart = (stat) => {
-    console.log("Rendering chart for stat:", stat);
+  // Add axis groups
+  g.append("g").attr("class", "x-axis");
+  g.append("g").attr("class", "y-axis");
 
-    // Filter the data for the selected stat
+  const renderChart = (stat) => {
     const filteredData = data.filter(d => d.stat === stat);
     console.log("Filtered data:", filteredData);
 
@@ -30,89 +34,109 @@ d3.csv("data.csv").then(data => {
       return;
     }
 
-    // Group data by date
-    const groupedByDate = d3.groups(filteredData, d => d.date);
-    console.log("Grouped data by date:", groupedByDate);
+    // Sort data by date
+    filteredData.sort((a, b) => a.date - b.date);
 
     let currentIndex = 0;
 
     const update = () => {
-      if (currentIndex >= groupedByDate.length) return;
+      if (currentIndex >= filteredData.length) return;
 
-      const [date, stats] = groupedByDate[currentIndex];
-      currentIndex++;
+      // Process data up to the current date
+      const currentDate = filteredData[currentIndex].date;
+      const dailyData = filteredData.filter(d => d.date <= currentDate);
 
-      console.log("Rendering date:", date, "with stats:", stats);
+      // Aggregate cumulative stats
+      dailyData.forEach(d => {
+        playerStats[d.player] += d.value;
+      });
 
-      // Sort the data for this date by value in descending order
-      stats.sort((a, b) => b.value - a.value);
+      // Get the top 10 players based on the cumulative value
+      const topPlayers = Object.entries(playerStats)
+        .map(([player, value]) => ({ player, value }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 10);
 
-      // Update the scales
-      xScale.domain([0, d3.max(stats, d => d.value)]);
-      yScale.domain(stats.map(d => d.player));
+      console.log("Top players on", currentDate, topPlayers);
 
-      // Update the bars
-      g.selectAll(".bar")
-        .data(stats, d => d.player)
-        .join(
-          enter => enter.append("rect")
-            .attr("class", "bar")
-            .attr("x", 0)
-            .attr("y", d => yScale(d.player))
-            .attr("width", 0)
-            .attr("height", yScale.bandwidth())
-            .transition().duration(1000)
-            .attr("width", d => xScale(d.value)),
-          update => update.transition().duration(1000)
-            .attr("y", d => yScale(d.player))
-            .attr("width", d => xScale(d.value)),
-          exit => exit.transition().duration(1000).attr("width", 0).remove()
-        );
+      // Update scales
+      xScale.domain([0, d3.max(topPlayers, d => d.value)]);
+      yScale.domain(topPlayers.map(d => d.player));
 
-      // Update the labels
-      g.selectAll(".label")
-        .data(stats, d => d.player)
-        .join(
-          enter => enter.append("text")
-            .attr("class", "label")
-            .attr("x", d => xScale(d.value) + 5)
-            .attr("y", d => yScale(d.player) + yScale.bandwidth() / 2)
-            .attr("dy", "0.35em")
-            .text(d => d.player)
-            .style("opacity", 0)
-            .transition().duration(1000)
-            .style("opacity", 1),
-          update => update.transition().duration(1000)
-            .attr("x", d => xScale(d.value) + 5)
-            .attr("y", d => yScale(d.player) + yScale.bandwidth() / 2)
-            .text(d => d.player),
-          exit => exit.transition().duration(1000).style("opacity", 0).remove()
-        );
+      // Update bars
+      const bars = g.selectAll(".bar")
+        .data(topPlayers, d => d.player);
 
-      // Update the x-axis
-      svg.select(".x-axis")
+      bars.enter()
+        .append("rect")
+        .attr("class", "bar")
+        .attr("x", 0)
+        .attr("y", d => yScale(d.player))
+        .attr("height", yScale.bandwidth())
+        .attr("width", 0) // Start with 0 width for animation
+        .merge(bars)
+        .transition().duration(1000)
+        .attr("x", 0)
+        .attr("y", d => yScale(d.player))
+        .attr("width", d => xScale(d.value))
+        .attr("height", yScale.bandwidth());
+
+      bars.exit()
+        .transition().duration(1000)
+        .attr("width", 0)
+        .remove();
+
+      // Update labels
+      const labels = g.selectAll(".label")
+        .data(topPlayers, d => d.player);
+
+      labels.enter()
+        .append("text")
+        .attr("class", "label")
+        .attr("x", d => xScale(d.value) + 5)
+        .attr("y", d => yScale(d.player) + yScale.bandwidth() / 2)
+        .attr("dy", "0.35em")
+        .text(d => d.player)
+        .merge(labels)
+        .transition().duration(1000)
+        .attr("x", d => xScale(d.value) + 5)
+        .attr("y", d => yScale(d.player) + yScale.bandwidth() / 2)
+        .text(d => d.player);
+
+      labels.exit()
+        .transition().duration(1000)
+        .style("opacity", 0)
+        .remove();
+
+      // Update axes
+      g.select(".x-axis")
         .transition().duration(1000)
         .call(d3.axisTop(xScale).ticks(6));
 
-      // Add a date label at the top
+      g.select(".y-axis")
+        .transition().duration(1000)
+        .call(d3.axisLeft(yScale));
+
+      // Add date label at the top
       svg.selectAll(".date-label")
-        .data([date])
+        .data([currentDate])
         .join(
           enter => enter.append("text")
             .attr("class", "date-label")
-            .attr("x", innerWidth / 2)
-            .attr("y", -10)
+            .attr("x", width / 2)
+            .attr("y", 20)
             .attr("text-anchor", "middle")
             .style("font-size", "16px")
             .text(d => d3.timeFormat("%B %d, %Y")(d)),
           update => update.text(d => d3.timeFormat("%B %d, %Y")(d))
         );
 
-      // Move to the next frame after a delay
+      // Move to the next time step
+      currentIndex++;
       setTimeout(update, 1500);
     };
 
-    // Initialize the chart with the first frame
+    // Start the animation
     update();
   };
 
@@ -122,7 +146,4 @@ d3.csv("data.csv").then(data => {
     console.log("Go button clicked, selected stat:", selectedStat);
     renderChart(selectedStat);
   });
-
-  // Initial setup of x-axis
-  svg.append("g").attr("class", "x-axis").attr("transform", `translate(${margin.left},${margin.top})`);
 });
