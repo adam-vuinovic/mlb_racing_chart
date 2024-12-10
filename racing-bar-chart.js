@@ -9,6 +9,10 @@ d3.csv("data.csv").then(data => {
     }
   });
 
+  // Sort data by date to ensure correct progression
+  data.sort((a, b) => a.date - b.date);
+
+  // Set up SVG dimensions
   const svg = d3.select("#chart"),
         width = +svg.attr("width"),
         height = +svg.attr("height"),
@@ -16,26 +20,26 @@ d3.csv("data.csv").then(data => {
         innerWidth = width - margin.left - margin.right,
         innerHeight = height - margin.top - margin.bottom;
 
+  // Scales
   const xScale = d3.scaleLinear().range([0, innerWidth]);
   const yScale = d3.scaleBand().range([0, innerHeight]).padding(0.1);
+  const colorScale = d3.scaleOrdinal(d3.schemeCategory10); // Different colors for each player
 
+  // Chart container
   const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
 
-  // Add axis groups
+  // Add axes
   g.append("g").attr("class", "x-axis");
   g.append("g").attr("class", "y-axis");
 
+  // Render chart
   const renderChart = (stat) => {
+    // Filter data for the selected stat
     const filteredData = data.filter(d => d.stat === stat);
-    console.log("Filtered data:", filteredData);
-
     if (!filteredData.length) {
       console.error("No data found for the selected stat:", stat);
       return;
     }
-
-    // Sort data by date
-    filteredData.sort((a, b) => a.date - b.date);
 
     let currentIndex = 0;
 
@@ -44,20 +48,18 @@ d3.csv("data.csv").then(data => {
 
       // Process data up to the current date
       const currentDate = filteredData[currentIndex].date;
-      const dailyData = filteredData.filter(d => d.date <= currentDate);
+      const dailyData = filteredData.slice(0, currentIndex + 1);
 
       // Aggregate cumulative stats
       dailyData.forEach(d => {
         playerStats[d.player] += d.value;
       });
 
-      // Get the top 10 players based on the cumulative value
+      // Get the top 10 players by cumulative value
       const topPlayers = Object.entries(playerStats)
         .map(([player, value]) => ({ player, value }))
         .sort((a, b) => b.value - a.value)
         .slice(0, 10);
-
-      console.log("Top players on", currentDate, topPlayers);
 
       // Update scales
       xScale.domain([0, d3.max(topPlayers, d => d.value)]);
@@ -74,6 +76,7 @@ d3.csv("data.csv").then(data => {
         .attr("y", d => yScale(d.player))
         .attr("height", yScale.bandwidth())
         .attr("width", 0) // Start with 0 width for animation
+        .attr("fill", d => colorScale(d.player)) // Assign colors
         .merge(bars)
         .transition().duration(1000)
         .attr("x", 0)
@@ -96,6 +99,7 @@ d3.csv("data.csv").then(data => {
         .attr("x", d => xScale(d.value) + 5)
         .attr("y", d => yScale(d.player) + yScale.bandwidth() / 2)
         .attr("dy", "0.35em")
+        .attr("text-anchor", "start")
         .text(d => d.player)
         .merge(labels)
         .transition().duration(1000)
@@ -117,7 +121,7 @@ d3.csv("data.csv").then(data => {
         .transition().duration(1000)
         .call(d3.axisLeft(yScale));
 
-      // Add date label at the top
+      // Add date label
       svg.selectAll(".date-label")
         .data([currentDate])
         .join(
@@ -131,19 +135,17 @@ d3.csv("data.csv").then(data => {
           update => update.text(d => d3.timeFormat("%B %d, %Y")(d))
         );
 
-      // Move to the next time step
+      // Increment the index and call update for the next time step
       currentIndex++;
       setTimeout(update, 1500);
     };
 
-    // Start the animation
     update();
   };
 
   // Add event listener to the "Go" button
   document.getElementById("start-button").addEventListener("click", () => {
     const selectedStat = document.getElementById("stat-select").value;
-    console.log("Go button clicked, selected stat:", selectedStat);
     renderChart(selectedStat);
   });
 });
