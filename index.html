@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MLB Racing Bar Chart</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    .bar {
+      fill: steelblue;
+    }
+    .label {
+      font-size: 12px;
+    }
+    .axis-label {
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <h1>MLB Player Stats Racing Bar Chart</h1>
+  <label for="stat-select">Choose a stat:</label>
+  <select id="stat-select">
+    <option value="home_runs">Home Runs</option>
+    <option value="hits">Hits</option>
+    <option value="batting_avg">Batting Average</option>
+  </select>
+  <button id="start-button">Go</button>
+
+  <svg id="chart" width="800" height="500"></svg>
+
+  <script src="racing-bar-chart.js"></script>
+</body>
+</html>
