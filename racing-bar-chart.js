@@ -1,17 +1,9 @@
 d3.csv("data.csv").then(data => {
-  // Parse data and initialize cumulative stats
-  const playerStats = {};
+  // Parse data
   data.forEach(d => {
     d.value = +d.value; // Ensure 'value' is numeric
     d.date = new Date(d.date); // Parse 'date' as a Date object
-    d.player = d.player; // Ensure 'player' is properly assigned
-    if (!playerStats[d.player]) {
-      playerStats[d.player] = 0; // Initialize cumulative value for each player
-    }
   });
-
-  // Sort data by date to ensure correct chronological progression
-  data.sort((a, b) => a.date - b.date);
 
   // Set up SVG dimensions and margins
   const svg = d3.select("#chart"),
@@ -33,27 +25,36 @@ d3.csv("data.csv").then(data => {
   g.append("g").attr("class", "x-axis");
   g.append("g").attr("class", "y-axis");
 
-  // Render chart
+  // Render chart function
   const renderChart = (stat) => {
     // Filter data for the selected stat
     const filteredData = data.filter(d => d.stat === stat);
     if (!filteredData.length) return;
 
-    let currentIndex = 0;
+    // Order data by date
+    filteredData.sort((a, b) => a.date - b.date);
 
+    // Initialize player stats
+    const playerStats = {};
+    const allPlayers = Array.from(new Set(filteredData.map(d => d.player))); // List of all players
+    allPlayers.forEach(player => playerStats[player] = 0); // Initialize cumulative totals for each player
+
+    let currentIndex = 0; // To iterate over dates
+
+    // Function to update the chart for each date
     const update = () => {
       if (currentIndex >= filteredData.length) return;
 
-      // Process data up to the current date
+      // Get the current date and filter rows for this date
       const currentDate = filteredData[currentIndex].date;
-      const dailyData = filteredData.slice(0, currentIndex + 1);
+      const dailyData = filteredData.filter(d => d.date <= currentDate);
 
-      // Aggregate cumulative stats
+      // Aggregate cumulative stats for players up to the current date
       dailyData.forEach(d => {
         playerStats[d.player] += d.value;
       });
 
-      // Get top 10 players by cumulative value
+      // Get the top 10 players by cumulative value
       const topPlayers = Object.entries(playerStats)
         .map(([player, value]) => ({ player, value }))
         .sort((a, b) => b.value - a.value)
@@ -133,11 +134,12 @@ d3.csv("data.csv").then(data => {
           update => update.text(d => d3.timeFormat("%B %d, %Y")(d))
         );
 
-      // Increment the index and call update for the next time step
+      // Move to the next time step
       currentIndex++;
-      setTimeout(update, 1500);
+      setTimeout(update, 1500); // Wait 1.5 seconds before updating for the next date
     };
 
+    // Start the update loop
     update();
   };
 
