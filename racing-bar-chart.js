@@ -10,8 +10,6 @@ d3.csv("data.csv").then(data => {
     }
   });
 
-  console.log("Parsed data:", data); // Debug: log parsed data
-
   // Sort data by date to ensure correct chronological progression
   data.sort((a, b) => a.date - b.date);
 
@@ -39,10 +37,7 @@ d3.csv("data.csv").then(data => {
   const renderChart = (stat) => {
     // Filter data for the selected stat
     const filteredData = data.filter(d => d.stat === stat);
-    if (!filteredData.length) {
-      console.error("No data found for the selected stat:", stat);
-      return;
-    }
+    if (!filteredData.length) return;
 
     let currentIndex = 0;
 
@@ -63,8 +58,6 @@ d3.csv("data.csv").then(data => {
         .map(([player, value]) => ({ player, value }))
         .sort((a, b) => b.value - a.value)
         .slice(0, 10);
-
-      console.log(`Top players on ${currentDate}:`, topPlayers); // Debug log
 
       // Update scales
       xScale.domain([0, d3.max(topPlayers, d => d.value)]);
